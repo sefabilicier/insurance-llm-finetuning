@@ -1,0 +1,62 @@
+# Model Configuration
+# Used for loading base model and configuring LoRA adapters
+
+model:
+  # Base model identifier (Hugging Face hub)
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  
+  # Model type and task
+  model_type: "causal_lm"
+  
+  # Tokenizer configuration
+  tokenizer_name: "Qwen/Qwen2.5-7B-Instruct"
+  trust_remote_code: true
+  
+  # Context length
+  max_seq_length: 2048
+  
+  # Precision
+  torch_dtype: "bfloat16"
+  device_map: "auto"
+
+# LoRA Adapter Configuration
+peft:
+  # LoRA method
+  peft_type: "LORA"
+  
+  # LoRA hyperparameters
+  lora_r: 16                    # Rank of LoRA matrices
+  lora_alpha: 32                # Scaling factor (typically 2x rank)
+  lora_dropout: 0.05            # Dropout rate for LoRA layers
+  
+  # Target modules (which weights to apply LoRA to)
+  target_modules:
+    - "q_proj"                  # Query projection in attention
+    - "v_proj"                  # Value projection in attention
+    - "k_proj"                  # Key projection in attention
+    - "o_proj"                  # Output projection in attention
+    - "gate_proj"               # Gate in MLP (Qwen specific)
+    - "up_proj"                 # Up projection in MLP
+    - "down_proj"               # Down projection in MLP
+  
+  # Bias configuration
+  bias: "none"                  # Don't update bias terms
+  task_type: "CAUSAL_LM"        # Causal language modeling task
+  
+  # LoRA initialization
+  init_lora_weights: true
+  modules_to_save:              # Keep these modules trainable (besides LoRA)
+    - "lm_head"
+
+# Quantization (optional, for QLoRA setup)
+quantization:
+  load_in_4bit: false           # Set to true for QLoRA with limited VRAM
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_use_double_quant: true
+
+# Attention optimization
+optimization:
+  use_flash_attention_2: true
+  gradient_checkpointing: true  # Save memory during backward pass
+  pretraining_tp: 1             # Tensor parallelism (1 = no parallelism)

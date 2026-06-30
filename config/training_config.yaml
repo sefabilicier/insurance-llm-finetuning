@@ -1,0 +1,143 @@
+# Training Configuration
+# Hyperparameters for SFT (Supervised Fine-Tuning) and DPO (Direct Preference Optimization)
+
+common:
+  # Output and checkpoint management
+  output_dir: "./outputs/checkpoints"
+  logging_dir: "./outputs/logs"
+  
+  # Random seed for reproducibility
+  seed: 42
+  
+  # Device and precision
+  device: "cuda"
+  fp16: false                   # Use bfloat16 instead (better for 7B models)
+  bf16: true
+  
+  # Memory optimization
+  gradient_checkpointing: true
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  
+  # Logging and monitoring
+  logging_steps: 50
+  log_level: "info"
+  report_to: ["wandb"]
+  
+  # Weights & Biases
+  wandb_project: "insurance-llm-finetuning"
+  wandb_entity: null            # Set if using organization
+  wandb_notes: "Qwen2.5-7B LoRA fine-tuning for insurance domain"
+
+# ============================================
+# SFT (Supervised Fine-Tuning) Configuration
+# ============================================
+sft:
+  # Training data
+  training_file: "./data/splits/train.json"
+  validation_file: "./data/splits/validation.json"
+  
+  # Sequence length
+  max_seq_length: 2048
+  packing: false                # Set to true for faster training (trade-off: less flexibility)
+  
+  # Batch sizes
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 16
+  
+  # Optimization
+  learning_rate: 2.0e-4         # Standard for LoRA on 7B models
+  lr_scheduler_type: "cosine"
+  num_train_epochs: 3
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  
+  # Evaluation and saving
+  evaluation_strategy: "steps"
+  eval_steps: 250
+  save_strategy: "steps"
+  save_steps: 500
+  save_total_limit: 3           # Keep only 3 best checkpoints
+  
+  # Model selection
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  
+  # Early stopping
+  early_stopping_patience: 3
+  early_stopping_threshold: 0.001
+  
+  # Training specifics for SFT
+  training_objective: "causal_lm"
+  response_template: "<|im_start|>assistant\n"  # ChatML format for responses only
+  
+  # Trainer
+  trainer_type: "sft"           # Uses TRL's SFTTrainer
+  
+  # Other
+  max_steps: -1                 # Use num_train_epochs instead (-1 means disabled)
+  
+  # Output naming
+  output_dir_suffix: "_sft"
+
+# ============================================
+# DPO (Direct Preference Optimization) Configuration
+# ============================================
+dpo:
+  # Training data (requires preference pairs)
+  training_file: "./data/splits/train_preferences.json"
+  validation_file: "./data/splits/validation_preferences.json"
+  
+  # Sequence length
+  max_seq_length: 2048
+  max_prompt_length: 1024       # Preferred length for prompts in DPO
+  
+  # Batch sizes
+  per_device_train_batch_size: 4  # Smaller batch for preference pairs
+  per_device_eval_batch_size: 8
+  
+  # Optimization
+  learning_rate: 5.0e-5         # Lower LR for DPO (preference learning is delicate)
+  lr_scheduler_type: "cosine"
+  num_train_epochs: 1           # Usually less epochs for DPO
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  
+  # DPO Specific
+  beta: 0.1                     # Temperature parameter (higher = stricter preference enforcement)
+  loss_type: "sigmoid"          # Options: sigmoid (DPO), hinge, ipo, kto, etc.
+  
+  # Evaluation and saving
+  evaluation_strategy: "steps"
+  eval_steps: 100
+  save_strategy: "steps"
+  save_steps: 200
+  save_total_limit: 3
+  
+  # Model selection
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  
+  # Output naming
+  output_dir_suffix: "_dpo"
+  
+  # DPO Trainer specific
+  trainer_type: "dpo"
+
+# ============================================
+# Post-Training Configuration
+# ============================================
+post_training:
+  # Adapter merging
+  merge_lora: true              # Merge LoRA weights into base model
+  merge_method: "default"       # Options: default, task_arithmetic, ties
+  
+  # Quantization (optional)
+  quantize: false               # Set to true to quantize merged model
+  quantization_method: "gptq"   # Options: gptq, awq, bnb
+  
+  # Export format
+  export_format: "safetensors"  # Options: safetensors, bin
+  export_dir: "./outputs/merged_models"
