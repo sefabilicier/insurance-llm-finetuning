@@ -13,34 +13,6 @@ services:
     image: insurance-llm:training
     
     # GPU support
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    
-    # Environment variables
-    env_file: .env
-    environment:
-      - WANDB_MODE=${WANDB_MODE:-online}
-      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
-    
-    # Volumes
-    volumes:
-      # Project code (read-write for flexibility)
-      - .:/workspace
-      # Cache for Hugging Face models (persist across runs)
-      - hf_cache:/root/.cache/huggingface
-      # Cache for torch (persist across runs)
-      - torch_cache:/root/.cache/torch
-    
-    # Working directory
-    working_dir: /workspace
-    
-    # Keep container running for manual interaction
-    stdin_open: true
-    tty: true
-    
-    # Resource limits
     deploy:
       resources:
         reservations:
@@ -49,12 +21,24 @@ services:
               count: all
               capabilities: [gpu]
     
-    # Network
+    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
+    env_file: .env
+    environment:
+      - WANDB_MODE=${WANDB_MODE:-online}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    
+    # Volumes
+    volumes:
+      - .:/workspace:delegated
+      - hf_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
+    
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    restart: "no"
     networks:
       - training-network
-    
-    # Restart policy
-    restart: "no"
 
   # ============================================
   # vLLM Serving Service
@@ -68,46 +52,6 @@ services:
     image: insurance-llm:vllm
     
     # GPU support
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    
-    # Environment variables
-    env_file: .env
-    environment:
-      - VLLM_PORT=${VLLM_PORT:-8000}
-      - VLLM_TENSOR_PARALLEL_SIZE=${VLLM_TENSOR_PARALLEL_SIZE:-1}
-    
-    # Command to start vLLM
-    command: >
-      python -m vllm.entrypoints.openai.api_server
-      --model outputs/merged_models/insurance-model-final
-      --port ${VLLM_PORT:-8000}
-      --dtype bfloat16
-      --gpu-memory-utilization 0.9
-      --tensor-parallel-size ${VLLM_TENSOR_PARALLEL_SIZE:-1}
-    
-    # Volumes
-    volumes:
-      - .:/workspace
-      - hf_cache:/root/.cache/huggingface
-    
-    working_dir: /workspace
-    
-    # Ports
-    ports:
-      - "${VLLM_PORT:-8000}:${VLLM_PORT:-8000}"
-    
-    # Health check
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${VLLM_PORT:-8000}/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    
-    # Resource limits
     deploy:
       resources:
         reservations:
@@ -116,10 +60,37 @@ services:
               count: all
               capabilities: [gpu]
     
+    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
+    env_file: .env
+    environment:
+      - VLLM_PORT=${VLLM_PORT:-8000}
+      - VLLM_TENSOR_PARALLEL_SIZE=${VLLM_TENSOR_PARALLEL_SIZE:-1}
+    
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model meta-llama/Llama-2-7b-hf
+      --port ${VLLM_PORT:-8000}
+      --dtype bfloat16
+      --gpu-memory-utilization 0.9
+      --tensor-parallel-size ${VLLM_TENSOR_PARALLEL_SIZE:-1}
+    
+    volumes:
+      - .:/workspace:delegated
+      - hf_cache:/root/.cache/huggingface
+    
+    working_dir: /workspace
+    ports:
+      - "${VLLM_PORT:-8000}:${VLLM_PORT:-8000}"
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${VLLM_PORT:-8000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
     networks:
       - training-network
-    
-    # Only start when needed
     profiles:
       - serving
 
@@ -134,35 +105,29 @@ services:
     container_name: insurance-api
     image: insurance-llm:api
     
-    # Environment variables
+    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
     env_file: .env
     environment:
       - FASTAPI_PORT=${FASTAPI_PORT:-8001}
       - VLLM_URL=http://vllm:${VLLM_PORT:-8000}
     
-    # Command to start FastAPI
     command: >
       uvicorn src.api.main:app
       --host 0.0.0.0
       --port ${FASTAPI_PORT:-8001}
       --reload
     
-    # Volumes
     volumes:
-      - .:/workspace
+      - .:/workspace:delegated
     
     working_dir: /workspace
-    
-    # Ports
     ports:
       - "${FASTAPI_PORT:-8001}:${FASTAPI_PORT:-8001}"
     
-    # Dependencies
     depends_on:
       vllm:
         condition: service_healthy
     
-    # Health check
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${FASTAPI_PORT:-8001}/health"]
       interval: 30s
@@ -172,7 +137,6 @@ services:
     
     networks:
       - training-network
-    
     profiles:
       - serving
 
@@ -182,18 +146,13 @@ services:
   tensorboard:
     image: tensorflow/tensorflow:latest
     container_name: insurance-tensorboard
-    
     command: tensorboard --logdir=/logs --host=0.0.0.0 --port=6006
-    
     volumes:
       - ./outputs/logs:/logs
-    
     ports:
       - "6006:6006"
-    
     networks:
       - training-network
-    
     profiles:
       - monitoring
 
@@ -209,22 +168,22 @@ services:
     image: insurance-llm:dev
     
     # GPU support
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     
-    # Environment variables
+    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
     env_file: .env
     
-    # Volumes
     volumes:
-      - .:/workspace
+      - .:/workspace:delegated
       - hf_cache:/root/.cache/huggingface
     
     working_dir: /workspace
-    
-    # Jupyter
     command: >
       jupyter notebook
       --ip=0.0.0.0
@@ -237,18 +196,8 @@ services:
     ports:
       - "8888:8888"
     
-    # Resource limits
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    
     networks:
       - training-network
-    
     profiles:
       - dev
 

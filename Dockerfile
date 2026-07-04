@@ -52,9 +52,12 @@ COPY . .
 RUN mkdir -p outputs/checkpoints outputs/merged_models outputs/logs outputs/evaluation outputs/reports
 
 # Expose ports for monitoring
-EXPOSE 6006  # TensorBoard
-EXPOSE 8000  # vLLM
-EXPOSE 8001  # FastAPI
+# TensorBoard
+EXPOSE 6006  
+# vLLM
+EXPOSE 8000  
+# FastAPI
+EXPOSE 8001  
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

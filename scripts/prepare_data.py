@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 from src.data.loader import DataLoader
-from src.data.generator import OllamaGenerator
+from src.data.generator import HybridGenerator
 from src.data.processor import DataProcessor
 from src.data.dataset import DatasetBuilder, ChatMLFormatter
 
@@ -49,9 +49,9 @@ def load_config():
 
 
 def step_generate(args):
-    """Step 1: Generate synthetic data using Ollama."""
+    """Step 1: Generate synthetic data using Hybrid approach (Templates + Ollama)."""
     logger.info("\n" + "="*80)
-    logger.info("STEP 1: SYNTHETIC DATA GENERATION")
+    logger.info("STEP 1: HYBRID SYNTHETIC DATA GENERATION")
     logger.info("="*80)
 
     # Setup paths
@@ -59,28 +59,19 @@ def step_generate(args):
     raw_dir.mkdir(parents=True, exist_ok=True)
     output_path = raw_dir / "synthetic_insurance_data.json"
 
-    # Initialize generator
-    try:
-        generator = OllamaGenerator(
-            ollama_url="http://localhost:11434",
-            model_name="llama2",
-            timeout=120,
-            max_retries=3,
-            verbose=True
-        )
-    except ConnectionError as e:
-        logger.error(f"Failed to connect to Ollama: {e}")
-        logger.error("Make sure Ollama is running: ollama serve")
-        sys.exit(1)
+    # Use hybrid generator (templates + optional Ollama)
+    from src.data.generator import HybridGenerator
+
+    generator = HybridGenerator(
+        template_ratio=getattr(args, "template_ratio", 0.8),
+        ollama_url="http://localhost:11434",
+        model_name="llama3.1",
+        seed=42,
+    )
 
     # Generate data
-    logger.info(f"\nGenerating {args.num_examples} examples with balanced distribution...")
-    examples = generator.generate_all_categories(
-        total_examples=args.num_examples,
-        balanced=True,
-        temperature=0.7,
-        delay=0.5
-    )
+    logger.info(f"\nGenerating {args.num_examples} examples (hybrid mode)...")
+    examples = generator.generate(total=args.num_examples, balanced=True)
 
     # Save
     with open(output_path, "w", encoding="utf-8") as f:
@@ -89,7 +80,7 @@ def step_generate(args):
     logger.info(f"\n✓ Step 1 complete!")
     logger.info(f"  Generated: {len(examples)} examples")
     logger.info(f"  Saved to: {output_path}")
-    logger.info(f"  File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
+    logger.info(f"  File size: {output_path.stat().st_size / 1024:.1f} KB")
 
     return output_path
 
@@ -208,6 +199,13 @@ def main():
         type=int,
         default=1000,
         help="Number of examples to generate (default: 1000)"
+    )
+
+    parser.add_argument(
+        "--template-ratio",
+        type=float,
+        default=0.8,
+        help="Fraction of examples from templates (0-1, default: 0.8)"
     )
 
     parser.add_argument(

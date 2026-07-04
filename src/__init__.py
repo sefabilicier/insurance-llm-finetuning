@@ -13,4 +13,4 @@ Modules:
 """
 
 __version__ = "0.1.0"
-__author__ = "Esra & Team"
+__author__ = "Sefa's"
