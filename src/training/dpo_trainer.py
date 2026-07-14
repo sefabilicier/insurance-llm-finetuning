@@ -315,7 +315,11 @@ class DPOTrainerWrapper:
             # DPO specific
             beta=dpo_cfg.get("beta", 0.1),
             loss_type=dpo_cfg.get("loss_type", "sigmoid"),
+<<<<<<< HEAD
             max_length=dpo_cfg.get("max_seq_length", 2048),
+=======
+            max_length=dpo_cfg.get("max_length", 2048),
+>>>>>>> 355bf7f
             max_prompt_length=dpo_cfg.get("max_prompt_length", 1024),
 
             # Precision
@@ -429,4 +433,8 @@ class DPOTrainerWrapper:
         self.tokenizer.save_pretrained(path)
 
         logger.info(f"✓ DPO adapter saved: {path}")
+<<<<<<< HEAD
         return path
+=======
+        return path
+>>>>>>> 355bf7f

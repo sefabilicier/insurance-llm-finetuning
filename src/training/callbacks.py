@@ -155,4 +155,8 @@ def get_default_callbacks(
         LossLoggingCallback(log_every_n_steps=log_every),
         GPUMemoryCallback(log_every_n_steps=memory_log_every),
         SaveBestModelCallback(),
+<<<<<<< HEAD
     ]
+=======
+    ]
+>>>>>>> 355bf7f

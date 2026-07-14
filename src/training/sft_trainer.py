@@ -77,9 +77,15 @@ class SFTTrainerWrapper:
             torch_dtype=model_cfg.get("torch_dtype", "bfloat16"),
             device_map=model_cfg.get("device_map", "auto"),
             trust_remote_code=model_cfg.get("trust_remote_code", True),
+<<<<<<< HEAD
             use_flash_attention=opt_cfg.get("use_flash_attention_2", True),
             load_in_4bit=self.model_config.get("quantization", {}).get("load_in_4bit", False),
             max_seq_length=model_cfg.get("max_seq_length", 2048),
+=======
+            use_flash_attention=opt_cfg.get("use_flash_attention_2", False),
+            load_in_4bit=self.model_config.get("quantization", {}).get("load_in_4bit", False),
+            max_length=model_cfg.get("max_length", 2048),
+>>>>>>> 355bf7f
         )
 
         # Create and apply LoRA
@@ -173,7 +179,11 @@ class SFTTrainerWrapper:
             report_to=common_cfg.get("report_to", ["wandb"]),
 
             # SFT specific
+<<<<<<< HEAD
             max_seq_length=sft_cfg.get("max_seq_length", 2048),
+=======
+            max_length=sft_cfg.get("max_length", 2048),
+>>>>>>> 355bf7f
             packing=sft_cfg.get("packing", False),
 
             # Seed
@@ -272,4 +282,8 @@ class SFTTrainerWrapper:
         self.tokenizer.save_pretrained(path)
 
         logger.info(f"✓ Adapter saved: {path}")
+<<<<<<< HEAD
         return path
+=======
+        return path
+>>>>>>> 355bf7f

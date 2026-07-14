@@ -41,9 +41,15 @@ def load_model_and_tokenizer(
     torch_dtype: str = "bfloat16",
     device_map: str = "auto",
     trust_remote_code: bool = True,
+<<<<<<< HEAD
     use_flash_attention: bool = True,
     load_in_4bit: bool = False,
     max_seq_length: int = 2048,
+=======
+    use_flash_attention: bool = False,
+    load_in_4bit: bool = False,
+    max_length: int = 2048,
+>>>>>>> 355bf7f
 ) -> Tuple[PreTrainedModel, PreTrainedTokenizer]:
     """
     Load base model and tokenizer from Hugging Face.
@@ -55,7 +61,11 @@ def load_model_and_tokenizer(
         trust_remote_code: Allow custom model code
         use_flash_attention: Use Flash Attention 2
         load_in_4bit: Load in 4-bit quantization (for QLoRA)
+<<<<<<< HEAD
         max_seq_length: Maximum sequence length
+=======
+        max_length: Maximum sequence length
+>>>>>>> 355bf7f
 
     Returns:
         Tuple of (model, tokenizer)
@@ -123,7 +133,11 @@ def load_model_and_tokenizer(
     logger.info(f"✓ Model loaded: {model_name}")
     logger.info(f"  Parameters: {model.num_parameters():,}")
     logger.info(f"  Vocab size: {len(tokenizer)}")
+<<<<<<< HEAD
     logger.info(f"  Max seq length: {max_seq_length}")
+=======
+    logger.info(f"  Max seq length: {max_length}")
+>>>>>>> 355bf7f
 
     return model, tokenizer
 
@@ -400,4 +414,8 @@ def cleanup_checkpoints(
 
     for old_dir in phase_dirs[keep_n:]:
         shutil.rmtree(old_dir)
+<<<<<<< HEAD
         logger.info(f"  Removed old checkpoint: {old_dir}")
+=======
+        logger.info(f"  Removed old checkpoint: {old_dir}")
+>>>>>>> 355bf7f

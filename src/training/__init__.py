@@ -32,4 +32,8 @@ __all__ = [
     "get_default_callbacks",
 ]
 
+<<<<<<< HEAD
 __version__ = "0.1.0"
+=======
+__version__ = "0.1.0"
+>>>>>>> 355bf7f

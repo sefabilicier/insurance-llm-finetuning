@@ -1,62 +1,43 @@
 # Model Configuration
-# Used for loading base model and configuring LoRA adapters
+# Qwen2.5-3B-Instruct + QLoRA (4-bit) for Google Colab T4 (16GB VRAM)
 
 model:
-  # Base model identifier (Hugging Face hub)
-  model_name: "Qwen/Qwen2.5-7B-Instruct"
-  
-  # Model type and task
+  # Base model — switched from 7B to 3B for T4 GPU compatibility
+  model_name: "Qwen/Qwen2.5-3B-Instruct"
   model_type: "causal_lm"
-  
-  # Tokenizer configuration
-  tokenizer_name: "Qwen/Qwen2.5-7B-Instruct"
+  tokenizer_name: "Qwen/Qwen2.5-3B-Instruct"
   trust_remote_code: true
-  
-  # Context length
   max_seq_length: 2048
-  
-  # Precision
-  torch_dtype: "bfloat16"
+  torch_dtype: "float16"       # T4 doesn't support bfloat16 natively
   device_map: "auto"
 
 # LoRA Adapter Configuration
 peft:
-  # LoRA method
   peft_type: "LORA"
-  
-  # LoRA hyperparameters
-  lora_r: 16                    # Rank of LoRA matrices
-  lora_alpha: 32                # Scaling factor (typically 2x rank)
-  lora_dropout: 0.05            # Dropout rate for LoRA layers
-  
-  # Target modules (which weights to apply LoRA to)
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
   target_modules:
-    - "q_proj"                  # Query projection in attention
-    - "v_proj"                  # Value projection in attention
-    - "k_proj"                  # Key projection in attention
-    - "o_proj"                  # Output projection in attention
-    - "gate_proj"               # Gate in MLP (Qwen specific)
-    - "up_proj"                 # Up projection in MLP
-    - "down_proj"               # Down projection in MLP
-  
-  # Bias configuration
-  bias: "none"                  # Don't update bias terms
-  task_type: "CAUSAL_LM"        # Causal language modeling task
-  
-  # LoRA initialization
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
   init_lora_weights: true
-  modules_to_save:              # Keep these modules trainable (besides LoRA)
-    - "lm_head"
 
-# Quantization (optional, for QLoRA setup)
+# QLoRA 4-bit Quantization — enabled for T4
 quantization:
-  load_in_4bit: false           # Set to true for QLoRA with limited VRAM
+  load_in_4bit: true
   bnb_4bit_quant_type: "nf4"
-  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_compute_dtype: "float16"
   bnb_4bit_use_double_quant: true
 
-# Attention optimization
+# Optimization
 optimization:
-  use_flash_attention_2: true
-  gradient_checkpointing: true  # Save memory during backward pass
-  pretraining_tp: 1             # Tensor parallelism (1 = no parallelism)
+  use_flash_attention_2: false    # T4 doesn't support Flash Attention 2
+  gradient_checkpointing: true
+  pretraining_tp: 1
