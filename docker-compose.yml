@@ -11,8 +11,6 @@ services:
       target: training
     container_name: insurance-training
     image: insurance-llm:training
-    
-    # GPU support
     deploy:
       resources:
         reservations:
@@ -20,19 +18,14 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    
-    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
     env_file: .env
     environment:
       - WANDB_MODE=${WANDB_MODE:-online}
       - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
-    
-    # Volumes
     volumes:
       - .:/workspace:delegated
       - hf_cache:/root/.cache/huggingface
       - torch_cache:/root/.cache/torch
-    
     working_dir: /workspace
     stdin_open: true
     tty: true
@@ -41,7 +34,35 @@ services:
       - training-network
 
   # ============================================
-  # vLLM Serving Service
+  # NEW: Lightweight API (CPU, no GPU needed)
+  # ============================================
+  api-serve:
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+    container_name: insurance-api-serve
+    ports:
+      - "8001:8001"
+    environment:
+      - BASE_MODEL=Qwen/Qwen2.5-3B-Instruct
+      - ADAPTER_REPO=sefabilicier/insurance-qwen3b-dpo
+      - HF_TOKEN=${HF_TOKEN}
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+    restart: unless-stopped
+    networks:
+      - training-network
+    profiles:
+      - serving
+
+  # ============================================
+  # vLLM Serving Service (GPU required)
   # ============================================
   vllm:
     build:
@@ -50,8 +71,6 @@ services:
       target: training
     container_name: insurance-vllm
     image: insurance-llm:vllm
-    
-    # GPU support
     deploy:
       resources:
         reservations:
@@ -59,43 +78,36 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    
-    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
     env_file: .env
     environment:
       - VLLM_PORT=${VLLM_PORT:-8000}
       - VLLM_TENSOR_PARALLEL_SIZE=${VLLM_TENSOR_PARALLEL_SIZE:-1}
-    
     command: >
       python -m vllm.entrypoints.openai.api_server
-      --model meta-llama/Llama-2-7b-hf
+      --model outputs/merged_models/insurance-model-final
       --port ${VLLM_PORT:-8000}
-      --dtype bfloat16
+      --dtype float16
       --gpu-memory-utilization 0.9
       --tensor-parallel-size ${VLLM_TENSOR_PARALLEL_SIZE:-1}
-    
     volumes:
       - .:/workspace:delegated
       - hf_cache:/root/.cache/huggingface
-    
     working_dir: /workspace
     ports:
       - "${VLLM_PORT:-8000}:${VLLM_PORT:-8000}"
-    
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${VLLM_PORT:-8000}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    
     networks:
       - training-network
     profiles:
-      - serving
+      - gpu-serving
 
   # ============================================
-  # FastAPI Backend Service
+  # FastAPI Backend (depends on vLLM, GPU)
   # ============================================
   api:
     build:
@@ -104,44 +116,36 @@ services:
       target: training
     container_name: insurance-api
     image: insurance-llm:api
-    
-    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
     env_file: .env
     environment:
       - FASTAPI_PORT=${FASTAPI_PORT:-8001}
       - VLLM_URL=http://vllm:${VLLM_PORT:-8000}
-    
     command: >
       uvicorn src.api.main:app
       --host 0.0.0.0
       --port ${FASTAPI_PORT:-8001}
       --reload
-    
     volumes:
       - .:/workspace:delegated
-    
     working_dir: /workspace
     ports:
       - "${FASTAPI_PORT:-8001}:${FASTAPI_PORT:-8001}"
-    
     depends_on:
       vllm:
         condition: service_healthy
-    
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${FASTAPI_PORT:-8001}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-    
     networks:
       - training-network
     profiles:
-      - serving
+      - gpu-serving
 
   # ============================================
-  # TensorBoard for Training Monitoring
+  # TensorBoard
   # ============================================
   tensorboard:
     image: tensorflow/tensorflow:latest
@@ -157,7 +161,7 @@ services:
       - monitoring
 
   # ============================================
-  # Development Service (with Jupyter)
+  # Development (Jupyter)
   # ============================================
   dev:
     build:
@@ -166,8 +170,6 @@ services:
       target: dev
     container_name: insurance-dev
     image: insurance-llm:dev
-    
-    # GPU support
     deploy:
       resources:
         reservations:
@@ -175,14 +177,10 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    
-    # Environment variables - TEK BİR YERDE BİRLEŞTİRİLDİ
     env_file: .env
-    
     volumes:
       - .:/workspace:delegated
       - hf_cache:/root/.cache/huggingface
-    
     working_dir: /workspace
     command: >
       jupyter notebook
@@ -192,25 +190,17 @@ services:
       --allow-root
       --NotebookApp.token=''
       --NotebookApp.password=''
-    
     ports:
       - "8888:8888"
-    
     networks:
       - training-network
     profiles:
       - dev
 
-# ============================================
-# Networks
-# ============================================
 networks:
   training-network:
     driver: bridge
 
-# ============================================
-# Volumes (for persisting model cache)
-# ============================================
 volumes:
   hf_cache:
     driver: local
